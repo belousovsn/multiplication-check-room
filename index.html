@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Таблица умножения</title>
+  <meta name="description" content="Комната для проверки таблицы умножения до 10">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111111'/%3E%3Cpath d='M18 20h28M18 32h28M18 44h28M24 14v36M40 14v36' stroke='%23ffffff' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+  <script src="./peerjs.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f7f4;
+      --panel: #ffffff;
+      --ink: #171717;
+      --muted: #6b6b65;
+      --line: #deded8;
+      --soft: #eeeeea;
+      --accent: #111111;
+      --good: #177245;
+      --bad: #a82e2e;
+      --focus: #3f7cff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+    }
+
+    button:hover { border-color: #b9b9b2; }
+    button:active { transform: translateY(1px); }
+    button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--focus), transparent 70%);
+      outline-offset: 2px;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.ghost { background: transparent; }
+    button.danger { color: var(--bad); }
+    button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    input, select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 0 12px;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 22px 0 32px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 8px 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(1.55rem, 3vw, 2.2rem); letter-spacing: 0; }
+    h2 { font-size: 1.15rem; }
+    h3 { font-size: .95rem; }
+    .muted { color: var(--muted); }
+    .tiny { font-size: .82rem; color: var(--muted); }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: .9rem;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #c5c5bf;
+    }
+    .dot.live { background: var(--good); }
+    .dot.warn { background: #b97816; }
+
+    .views { margin-top: 22px; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .landing {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      gap: 28px;
+      align-items: start;
+      padding-top: 22px;
+    }
+
+    .intro {
+      display: grid;
+      gap: 18px;
+      max-width: 620px;
+    }
+
+    .intro p { font-size: 1.05rem; line-height: 1.55; color: var(--muted); }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mode-button {
+      min-height: 112px;
+      text-align: left;
+      padding: 16px;
+      display: grid;
+      align-content: space-between;
+    }
+
+    .mode-button strong { font-size: 1.05rem; }
+    .mode-button span { color: var(--muted); line-height: 1.4; }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+
+    .stack { display: grid; gap: 14px; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .spread { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+
+    .host-layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .join-link {
+      display: grid;
+      gap: 8px;
+    }
+
+    .link-box {
+      display: flex;
+      gap: 8px;
+    }
+
+    .link-box input { min-width: 0; font-size: .92rem; }
+
+    .selector {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .problem {
+      min-height: 150px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #fff, #f8f8f5);
+      text-align: center;
+      padding: 18px;
+    }
+
+    .problem strong {
+      display: block;
+      font-size: clamp(3.8rem, 10vw, 7rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .problem span { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .95rem;
+    }
+
+    th, td {
+      padding: 11px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: .82rem;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+
+    .answer-good { color: var(--good); font-weight: 700; }
+    .answer-bad { color: var(--bad); font-weight: 700; }
+
+    .participant-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(290px, 360px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .answer-display {
+      min-height: 74px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 10px 16px;
+      font-size: 2.1rem;
+      font-weight: 700;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .keypad button {
+      min-height: 56px;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 8px;
+      max-height: 380px;
+      overflow: auto;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfbf9;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translateX(-50%);
+      background: #111;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+      max-width: min(520px, calc(100% - 24px));
+      text-align: center;
+      z-index: 10;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px);
+    }
+
+    @media (max-width: 860px) {
+      .landing, .host-layout, .participant-layout {
+        grid-template-columns: 1fr;
+      }
+      header { align-items: flex-start; flex-direction: column; }
+      .mode-grid { grid-template-columns: 1fr; }
+      .participant-layout .panel:first-child { order: 1; }
+    }
+
+    @media (max-width: 560px) {
+      .app { width: min(100% - 22px, 1180px); padding-top: 14px; }
+      .panel { padding: 14px; }
+      .link-box { flex-direction: column; }
+      .selector { grid-template-columns: 1fr; }
+      th, td { padding: 9px 6px; }
+      .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Таблица умножения</h1>
+        <p class="muted">Раунды до 10, общий счет и быстрый вход по ссылке.</p>
+      </div>
+      <div class="status" id="connectionStatus"><span class="dot"></span><span>Не подключено</span></div>
+    </header>
+
+    <section class="views">
+      <div class="view active" id="landingView">
+        <div class="landing">
+          <div class="intro">
+            <h2>Проверка для класса или маленькой группы</h2>
+            <p>Хост создает комнату, участники заходят по временной ссылке, отвечают с цифровой клавиатуры, а результаты сразу появляются у хоста.</p>
+            <div class="mode-grid">
+              <button class="mode-button primary" id="hostMode">
+                <strong>Я хост</strong>
+                <span>Создать комнату и управлять раундами</span>
+              </button>
+              <button class="mode-button" id="participantMode">
+                <strong>Я участник</strong>
+                <span>Подключиться по ссылке и отвечать</span>
+              </button>
+            </div>
+          </div>
+          <form class="panel stack" id="participantForm">
+            <div class="stack">
+              <h2>Вход участника</h2>
+              <label class="stack">
+                <span class="tiny">Имя</span>
+                <div class="row">
+                  <input id="participantName" autocomplete="name" placeholder="Например, Аня">
+                  <button type="button" class="ghost" id="randomName">Случайное</button>
+                </div>
+              </label>
+              <label class="stack">
+                <span class="tiny">Код комнаты</span>
+                <input id="roomInput" placeholder="Код появится в ссылке">
+              </label>
+            </div>
+            <button class="primary" type="submit">Войти</button>
+            <p class="tiny">Если вы открыли ссылку от хоста, код комнаты уже подставлен.</p>
+          </form>
+        </div>
+      </div>
+
+      <div class="view" id="hostView">
+        <div class="host-layout">
+          <aside class="panel stack">
+            <div class="spread">
+              <h2>Комната</h2>
+              <button class="ghost" id="newRoom">Новая</button>
+            </div>
+            <div class="join-link">
+              <span class="tiny">Ссылка для участников</span>
+              <div class="link-box">
+                <input id="joinLink" readonly>
+                <button id="copyLink">Копировать</button>
+              </div>
+              <p class="tiny">Окно хоста должно оставаться открытым, пока идет игра.</p>
+            </div>
+            <div class="stack">
+              <h2>Раунд</h2>
+              <div class="selector">
+                <label class="stack">
+                  <span class="tiny">Первое число</span>
+                  <select id="leftFactor"></select>
+                </label>
+                <label class="stack">
+                  <span class="tiny">Второе число</span>
+                  <select id="rightFactor"></select>
+                </label>
+              </div>
+              <button class="primary" id="startRound">Начать раунд</button>
+              <button id="randomRound">Случайный пример</button>
+              <button class="danger" id="finishRound">Закончить раунд</button>
+            </div>
+            <div class="problem" id="hostProblem">
+              <div>
+                <strong>—</strong>
+                <span>Раунд еще не начат</span>
+              </div>
+            </div>
+          </aside>
+
+          <section class="panel stack">
+            <div class="spread">
+              <div>
+                <h2>Результаты</h2>
+                <p class="tiny" id="roundMeta">Участники появятся после подключения.</p>
+              </div>
+              <button class="ghost" id="resetScores">Сбросить счет</button>
+            </div>
+            <div id="hostResults"></div>
+          </section>
+        </div>
+      </div>
+
+      <div class="view" id="participantView">
+        <div class="participant-layout">
+          <section class="panel stack">
+            <div class="spread">
+              <div>
+                <h2 id="participantTitle">Участник</h2>
+                <p class="tiny" id="participantMeta">Ожидание раунда.</p>
+              </div>
+              <button class="ghost" id="leaveRoom">Выйти</button>
+            </div>
+            <div class="problem" id="participantProblem">
+              <div>
+                <strong>—</strong>
+                <span>Хост скоро начнет</span>
+              </div>
+            </div>
+            <div class="answer-display" id="answerDisplay">0</div>
+            <div class="keypad" id="keypad"></div>
+            <button class="primary" id="submitAnswer" disabled>Отправить</button>
+          </section>
+
+          <aside class="panel stack">
+            <h2>Мои раунды</h2>
+            <div class="history-list" id="participantHistory">
+              <div class="empty">Ответов пока нет.</div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = {
+      role: "landing",
+      room: "",
+      peer: null,
+      hostConnection: null,
+      connections: new Map(),
+      participants: new Map(),
+      currentRound: null,
+      roundNumber: 0,
+      answer: "",
+      myName: "",
+      myHistory: []
+    };
+
+    const adjectives = ["Быстрый", "Смелый", "Умный", "Веселый", "Тихий", "Ловкий", "Добрый", "Зоркий", "Яркий", "Спокойный"];
+    const animals = ["Тигр", "Лис", "Кит", "Енот", "Сокол", "Медведь", "Дельфин", "Барсук", "Заяц", "Кот"];
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove("show"), 2100);
+    }
+
+    function setStatus(text, mode = "") {
+      const status = $("connectionStatus");
+      status.querySelector("span:last-child").textContent = text;
+      status.querySelector(".dot").className = `dot ${mode}`;
+    }
+
+    function setView(name) {
+      state.role = name;
+      for (const view of document.querySelectorAll(".view")) view.classList.remove("active");
+      $(`${name}View`).classList.add("active");
+    }
+
+    function roomId() {
+      const bytes = crypto.getRandomValues(new Uint8Array(5));
+      return Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 9);
+    }
+
+    function randomName() {
+      const a = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const b = animals[Math.floor(Math.random() * animals.length)];
+      return `${a} ${b}`;
+    }
+
+    function cleanRoom(value) {
+      return (value || "").trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
+    }
+
+    function getRoomFromUrl() {
+      return cleanRoom(new URLSearchParams(location.search).get("room"));
+    }
+
+    function participantUrl(room) {
+      const url = new URL(location.href);
+      url.searchParams.set("room", room);
+      url.hash = "";
+      return url.href;
+    }
+
+    function fillFactors() {
+      for (const select of [$("leftFactor"), $("rightFactor")]) {
+        select.innerHTML = "";
+        for (let i = 1; i <= 10; i++) {
+          const option = document.createElement("option");
+          option.value = i;
+          option.textContent = i;
+          select.appendChild(option);
+        }
+      }
+    }
+
+    function peerConfig(id) {
+      return new Peer(id, {
+        debug: 0,
+        config: { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] }
+      });
+    }
+
+    function setupPeerEvents(peer, label) {
+      peer.on("open", () => setStatus(label, "live"));
+      peer.on("error", (error) => {
+        const text = error && error.type === "unavailable-id"
+          ? "Код комнаты уже занят. Создайте новую комнату."
+          : "Не удалось подключиться. Проверьте ссылку или сеть.";
+        setStatus(text, "warn");
+        showToast(text);
+      });
+      peer.on("disconnected", () => setStatus("Соединение потеряно", "warn"));
+    }
+
+    function send(conn, message) {
+      if (conn && conn.open) conn.send(message);
+    }
+
+    function broadcast(message) {
+      for (const conn of state.connections.values()) send(conn, message);
+    }
+
+    function startHost(room = roomId()) {
+      state.room = room;
+      state.participants.clear();
+      state.connections.clear();
+      state.currentRound = null;
+      state.roundNumber = 0;
+      if (state.peer) state.peer.destroy();
+      state.peer = peerConfig(`multiply-${room}`);
+      setupPeerEvents(state.peer, `Комната ${room}`);
+      state.peer.on("connection", (conn) => {
+        conn.on("open", () => send(conn, { type: "welcome", room, round: state.currentRound, roundNumber: state.roundNumber }));
+        conn.on("data", (message) => handleHostMessage(conn, message));
+        conn.on("close", () => {
+          const participant = state.participants.get(conn.peer);
+          if (participant) participant.connected = false;
+          renderHostResults();
+        });
+      });
+      $("joinLink").value = participantUrl(room);
+      setView("host");
+      renderHostProblem();
+      renderHostResults();
+    }
+
+    function handleHostMessage(conn, message) {
+      if (!message || !message.type) return;
+      if (message.type === "join") {
+        const participant = state.participants.get(conn.peer) || {
+          id: conn.peer,
+          name: message.name || randomName(),
+          score: 0,
+          correct: 0,
+          total: 0,
+          answer: null,
+          connected: true
+        };
+        participant.name = message.name || participant.name;
+        participant.connected = true;
+        state.participants.set(conn.peer, participant);
+        state.connections.set(conn.peer, conn);
+        send(conn, { type: "state", round: state.currentRound, roundNumber: state.roundNumber, score: participant.score });
+        renderHostResults();
+        return;
+      }
+      if (message.type === "answer") {
+        const participant = state.participants.get(conn.peer);
+        if (!participant || !state.currentRound || message.roundId !== state.currentRound.id) return;
+        const value = Number(message.value);
+        const correctAnswer = state.currentRound.left * state.currentRound.right;
+        const isCorrect = value === correctAnswer;
+        const alreadyAnswered = participant.answer && participant.answer.roundId === message.roundId;
+        participant.answer = { roundId: message.roundId, value, isCorrect, at: Date.now() };
+        if (!alreadyAnswered) {
+          participant.total += 1;
+          if (isCorrect) {
+            participant.correct += 1;
+            participant.score += 1;
+          }
+        }
+        send(conn, { type: "checked", roundId: message.roundId, value, isCorrect, correctAnswer, score: participant.score });
+        renderHostResults();
+      }
+    }
+
+    function startRound(left, right) {
+      state.roundNumber += 1;
+      state.currentRound = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        left,
+        right,
+        active: true
+      };
+      for (const participant of state.participants.values()) participant.answer = null;
+      broadcast({ type: "round", round: state.currentRound, roundNumber: state.roundNumber });
+      renderHostProblem();
+      renderHostResults();
+    }
+
+    function finishRound() {
+      if (!state.currentRound) return;
+      state.currentRound.active = false;
+      broadcast({ type: "round-ended", round: state.currentRound, roundNumber: state.roundNumber });
+      renderHostProblem();
+      renderHostResults();
+    }
+
+    function renderHostProblem() {
+      const round = state.currentRound;
+      $("hostProblem").innerHTML = round
+        ? `<div><strong>${round.left} × ${round.right}</strong><span>${round.active ? "Раунд идет" : "Раунд закончен"}</span></div>`
+        : `<div><strong>—</strong><span>Раунд еще не начат</span></div>`;
+    }
+
+    function renderHostResults() {
+      const participants = [...state.participants.values()].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+      $("roundMeta").textContent = `${participants.length} участн. · раунд ${state.roundNumber || 0}`;
+      if (!participants.length) {
+        $("hostResults").innerHTML = `<div class="empty">Пока никто не подключился.</div>`;
+        return;
+      }
+      const rows = participants.map((p) => {
+        const answer = p.answer
+          ? `<span class="${p.answer.isCorrect ? "answer-good" : "answer-bad"}">${p.answer.value}</span>`
+          : `<span class="muted">—</span>`;
+        const accuracy = p.total ? `${Math.round((p.correct / p.total) * 100)}%` : "—";
+        return `<tr>
+          <td><strong>${escapeHtml(p.name)}</strong><br><span class="tiny">${p.connected ? "в комнате" : "отключился"}</span></td>
+          <td>${answer}</td>
+          <td>${p.score}</td>
+          <td class="hide-sm">${p.correct}/${p.total}</td>
+          <td class="hide-sm">${accuracy}</td>
+        </tr>`;
+      }).join("");
+      $("hostResults").innerHTML = `<table>
+        <thead><tr><th>Участник</th><th>Ответ</th><th>Счет</th><th class="hide-sm">Верно</th><th class="hide-sm">Точность</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    function startParticipant(room, name) {
+      state.room = room;
+      state.myName = name || randomName();
+      state.myHistory = [];
+      state.answer = "";
+      if (state.peer) state.peer.destroy();
+      state.peer = peerConfig();
+      setupPeerEvents(state.peer, "Готов к подключению");
+      state.peer.on("open", () => {
+        const conn = state.peer.connect(`multiply-${room}`, { reliable: true });
+        state.hostConnection = conn;
+        conn.on("open", () => {
+          setStatus(`Подключено к ${room}`, "live");
+          send(conn, { type: "join", name: state.myName });
+        });
+        conn.on("data", handleParticipantMessage);
+        conn.on("close", () => setStatus("Хост отключился", "warn"));
+      });
+      $("participantTitle").textContent = state.myName;
+      setView("participant");
+      renderParticipantProblem();
+      renderAnswer();
+      renderHistory();
+    }
+
+    function handleParticipantMessage(message) {
+      if (!message || !message.type) return;
+      if (message.type === "welcome" || message.type === "state") {
+        state.currentRound = message.round || null;
+        state.roundNumber = message.roundNumber || 0;
+        state.answer = "";
+        renderParticipantProblem();
+        renderAnswer();
+      }
+      if (message.type === "round") {
+        state.currentRound = message.round;
+        state.roundNumber = message.roundNumber;
+        state.answer = "";
+        renderParticipantProblem();
+        renderAnswer();
+        showToast("Новый раунд");
+      }
+      if (message.type === "round-ended") {
+        if (state.currentRound && state.currentRound.id === message.round.id) {
+          state.currentRound = message.round;
+          renderParticipantProblem();
+        }
+      }
+      if (message.type === "checked") {
+        state.myHistory.unshift({
+          roundId: message.roundId,
+          value: message.value,
+          isCorrect: message.isCorrect,
+          correctAnswer: message.correctAnswer,
+          problem: state.currentRound ? `${state.currentRound.left} × ${state.currentRound.right}` : "Раунд"
+        });
+        renderHistory();
+        showToast(message.isCorrect ? "Верно" : `Нужно ${message.correctAnswer}`);
+      }
+    }
+
+    function renderParticipantProblem() {
+      const round = state.currentRound;
+      $("participantMeta").textContent = round ? `Раунд ${state.roundNumber}` : "Ожидание раунда.";
+      $("submitAnswer").disabled = !(round && round.active && state.answer);
+      $("participantProblem").innerHTML = round
+        ? `<div><strong>${round.left} × ${round.right}</strong><span>${round.active ? "Введите ответ" : "Раунд закончен"}</span></div>`
+        : `<div><strong>—</strong><span>Хост скоро начнет</span></div>`;
+    }
+
+    function renderAnswer() {
+      $("answerDisplay").textContent = state.answer || "0";
+      $("submitAnswer").disabled = !(state.currentRound && state.currentRound.active && state.answer);
+    }
+
+    function renderHistory() {
+      if (!state.myHistory.length) {
+        $("participantHistory").innerHTML = `<div class="empty">Ответов пока нет.</div>`;
+        return;
+      }
+      $("participantHistory").innerHTML = state.myHistory.map((item) => `
+        <div class="history-item">
+          <div><strong>${escapeHtml(item.problem)}</strong><br><span class="tiny">Ваш ответ: ${item.value}</span></div>
+          <span class="${item.isCorrect ? "answer-good" : "answer-bad"}">${item.isCorrect ? "верно" : item.correctAnswer}</span>
+        </div>
+      `).join("");
+    }
+
+    function submitAnswer() {
+      if (!state.currentRound || !state.currentRound.active || !state.answer) return;
+      send(state.hostConnection, { type: "answer", roundId: state.currentRound.id, value: Number(state.answer) });
+      showToast("Ответ отправлен");
+      state.answer = "";
+      renderAnswer();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    function setupKeypad() {
+      const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "C"];
+      $("keypad").innerHTML = keys.map((key) => `<button type="button" data-key="${key}">${key}</button>`).join("");
+      $("keypad").addEventListener("click", (event) => {
+        const button = event.target.closest("button");
+        if (!button) return;
+        const key = button.dataset.key;
+        if (key === "C") state.answer = "";
+        else if (key === "⌫") state.answer = state.answer.slice(0, -1);
+        else if (state.answer.length < 3) state.answer += key;
+        renderAnswer();
+      });
+    }
+
+    function bindEvents() {
+      $("hostMode").addEventListener("click", () => startHost());
+      $("participantMode").addEventListener("click", () => $("participantName").focus());
+      $("randomName").addEventListener("click", () => $("participantName").value = randomName());
+      $("participantForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const room = cleanRoom($("roomInput").value);
+        if (!room) return showToast("Нужен код комнаты");
+        const name = $("participantName").value.trim() || randomName();
+        startParticipant(room, name);
+      });
+      $("newRoom").addEventListener("click", () => startHost());
+      $("copyLink").addEventListener("click", async () => {
+        await navigator.clipboard.writeText($("joinLink").value);
+        showToast("Ссылка скопирована");
+      });
+      $("startRound").addEventListener("click", () => {
+        startRound(Number($("leftFactor").value), Number($("rightFactor").value));
+      });
+      $("randomRound").addEventListener("click", () => {
+        const left = Math.floor(Math.random() * 10) + 1;
+        const right = Math.floor(Math.random() * 10) + 1;
+        $("leftFactor").value = left;
+        $("rightFactor").value = right;
+        startRound(left, right);
+      });
+      $("finishRound").addEventListener("click", finishRound);
+      $("resetScores").addEventListener("click", () => {
+        for (const participant of state.participants.values()) {
+          participant.score = 0;
+          participant.correct = 0;
+          participant.total = 0;
+          participant.answer = null;
+        }
+        renderHostResults();
+      });
+      $("submitAnswer").addEventListener("click", submitAnswer);
+      $("leaveRoom").addEventListener("click", () => location.href = location.pathname);
+      window.addEventListener("keydown", (event) => {
+        if (state.role !== "participant") return;
+        if (/^\d$/.test(event.key) && state.answer.length < 3) {
+          state.answer += event.key;
+          renderAnswer();
+        } else if (event.key === "Backspace") {
+          state.answer = state.answer.slice(0, -1);
+          renderAnswer();
+        } else if (event.key === "Enter") {
+          submitAnswer();
+        }
+      });
+    }
+
+    fillFactors();
+    setupKeypad();
+    bindEvents();
+    const linkedRoom = getRoomFromUrl();
+    $("roomInput").value = linkedRoom;
+    $("participantName").value = randomName();
+    if (linkedRoom) setStatus(`Код ${linkedRoom} получен`, "warn");
+  </script>
+</body>
+</html>
