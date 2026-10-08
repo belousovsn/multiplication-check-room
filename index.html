@@ -808,6 +808,10 @@
       return cleanRoom(new URLSearchParams(location.search).get("room"));
     }
 
+    function savedNameKey(room) {
+      return `multiplicationName:${room}`;
+    }
+
     function participantUrl(room) {
       const url = new URL(location.href);
       url.searchParams.set("room", room);
@@ -877,6 +881,7 @@
         conn.on("close", () => {
           const participant = state.participants.get(conn.peer);
           if (participant) participant.connected = false;
+          state.connections.delete(conn.peer);
           renderHostResults();
         });
       });
@@ -889,9 +894,33 @@
     function handleHostMessage(conn, message) {
       if (!message || !message.type) return;
       if (message.type === "join") {
-        const participant = state.participants.get(conn.peer) || {
+        const requestedName = (message.name || randomName()).trim() || randomName();
+        const normalizedName = requestedName.toLocaleLowerCase("ru-RU");
+        const onlineDuplicate = [...state.participants.values()].some((participant) =>
+          participant.id !== conn.peer &&
+          participant.connected &&
+          participant.name.toLocaleLowerCase("ru-RU") === normalizedName
+        );
+        if (onlineDuplicate) {
+          send(conn, { type: "rejected", reason: "duplicate-name", name: requestedName });
+          setTimeout(() => conn.close(), 60);
+          return;
+        }
+        let participant = state.participants.get(conn.peer);
+        if (!participant) {
+          const previousEntry = [...state.participants.entries()].find(([, existing]) =>
+            !existing.connected &&
+            existing.name.toLocaleLowerCase("ru-RU") === normalizedName
+          );
+          if (previousEntry) {
+            state.participants.delete(previousEntry[0]);
+            state.connections.delete(previousEntry[0]);
+            participant = previousEntry[1];
+          }
+        }
+        participant = participant || {
           id: conn.peer,
-          name: message.name || randomName(),
+          name: requestedName,
           score: 0,
           correct: 0,
           total: 0,
@@ -899,11 +928,12 @@
           attempts: [],
           connected: true
         };
-        participant.name = message.name || participant.name;
+        participant.id = conn.peer;
+        participant.name = requestedName;
         participant.connected = true;
         state.participants.set(conn.peer, participant);
         state.connections.set(conn.peer, conn);
-        send(conn, { type: "state", round: state.currentRound, roundNumber: state.roundNumber, score: participant.score });
+        send(conn, { type: "state", round: state.currentRound, roundNumber: state.roundNumber, score: participant.score, answer: participant.answer });
         renderHostResults();
         return;
       }
@@ -1062,6 +1092,7 @@
     function startParticipant(room, name) {
       state.room = room;
       state.myName = name || randomName();
+      localStorage.setItem(savedNameKey(room), state.myName);
       state.myHistory = [];
       state.answer = "";
       if (state.peer) state.peer.destroy();
@@ -1075,7 +1106,9 @@
           send(conn, { type: "join", name: state.myName });
         });
         conn.on("data", handleParticipantMessage);
-        conn.on("close", () => setStatus("Хост отключился", "warn"));
+        conn.on("close", () => {
+          if (state.role === "participant") setStatus("Хост отключился", "warn");
+        });
       });
       $("participantTitle").textContent = state.myName;
       state.correctRoundId = "";
@@ -1087,11 +1120,20 @@
 
     function handleParticipantMessage(message) {
       if (!message || !message.type) return;
+      if (message.type === "rejected") {
+        showToast("Такое имя уже в игре");
+        setStatus("Выберите другое имя", "warn");
+        if (state.peer) state.peer.destroy();
+        state.hostConnection = null;
+        $("participantName").value = message.name || state.myName || "";
+        setView("landing");
+        return;
+      }
       if (message.type === "welcome" || message.type === "state") {
         state.currentRound = message.round || null;
         state.roundNumber = message.roundNumber || 0;
         state.answer = "";
-        state.correctRoundId = "";
+        state.correctRoundId = message.answer && message.answer.isCorrect ? message.answer.roundId : "";
         renderParticipantProblem();
         renderAnswer();
       }
@@ -1215,6 +1257,7 @@
         const room = state.linkedRoom;
         if (!room) return showToast("Откройте ссылку от хоста");
         const name = $("participantName").value.trim() || randomName();
+        localStorage.setItem(savedNameKey(room), name);
         startParticipant(room, name);
       });
       $("newRoom").addEventListener("click", () => startHost());
@@ -1244,7 +1287,13 @@
         renderHostResults();
       });
       $("submitAnswer").addEventListener("click", submitAnswer);
-      $("leaveRoom").addEventListener("click", () => location.href = location.pathname);
+      $("leaveRoom").addEventListener("click", () => {
+        if (state.peer) state.peer.destroy();
+        location.href = location.pathname;
+      });
+      window.addEventListener("beforeunload", () => {
+        if (state.role === "participant" && state.peer) state.peer.destroy();
+      });
       window.addEventListener("keydown", (event) => {
         if (state.role === "teacher") {
           if (event.key === " " || event.key === "Enter") {
@@ -1283,7 +1332,13 @@
     if (linkedRoom) {
       document.body.classList.add("linked-room");
       setStatus("Ссылка готова", "warn");
-      $("participantName").focus();
+      const savedName = localStorage.getItem(savedNameKey(linkedRoom)) || "";
+      $("participantName").value = savedName;
+      if (savedName) {
+        setTimeout(() => startParticipant(linkedRoom, savedName), 120);
+      } else {
+        $("participantName").focus();
+      }
     }
   </script>
 </body>
