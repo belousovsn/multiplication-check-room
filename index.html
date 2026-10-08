@@ -127,6 +127,15 @@
       padding-top: 22px;
     }
 
+    body.linked-room .landing {
+      grid-template-columns: minmax(280px, 480px);
+      justify-content: center;
+    }
+
+    body.linked-room .intro {
+      display: none;
+    }
+
     .intro {
       display: grid;
       gap: 18px;
@@ -199,6 +208,12 @@
       padding: 18px;
     }
 
+    .problem.round-flash {
+      animation: roundFlash .85s ease;
+      border-color: #111;
+      box-shadow: 0 0 0 5px rgba(17, 17, 17, .08);
+    }
+
     .problem strong {
       display: block;
       font-size: clamp(3.8rem, 10vw, 7rem);
@@ -207,6 +222,23 @@
     }
 
     .problem span { color: var(--muted); }
+
+    .round-banner {
+      display: none;
+      place-items: center;
+      min-height: 64px;
+      border-radius: 8px;
+      background: #111;
+      color: #fff;
+      font-size: 1.35rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .round-banner.show {
+      display: grid;
+      animation: bannerPop .9s ease both;
+    }
 
     table {
       width: 100%;
@@ -313,6 +345,78 @@
       transform: translateX(-50%) translateY(-4px);
     }
 
+    .reward {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      pointer-events: none;
+      z-index: 9;
+      background: rgba(247, 247, 244, .38);
+    }
+
+    .reward.show {
+      display: grid;
+      animation: rewardFade 1.2s ease both;
+    }
+
+    .reward-card {
+      display: grid;
+      gap: 10px;
+      place-items: center;
+      min-width: min(320px, calc(100vw - 36px));
+      border: 1px solid #c7e4d2;
+      border-radius: 8px;
+      background: #fff;
+      padding: 24px;
+      box-shadow: 0 18px 60px rgba(23, 23, 23, .16);
+      color: var(--good);
+      text-align: center;
+    }
+
+    .reward-card strong {
+      font-size: 2rem;
+      color: var(--good);
+    }
+
+    .sparkles {
+      font-size: 2.2rem;
+      letter-spacing: 0;
+      animation: sparkleJump .65s ease both;
+    }
+
+    @keyframes roundFlash {
+      0% { transform: scale(.96); background: #111; color: #fff; }
+      55% { transform: scale(1.015); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes bannerPop {
+      0% { opacity: 0; transform: translateY(-8px) scale(.96); }
+      18% { opacity: 1; transform: translateY(0) scale(1); }
+      78% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-8px) scale(.98); }
+    }
+
+    @keyframes rewardFade {
+      0% { opacity: 0; }
+      15% { opacity: 1; }
+      78% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes sparkleJump {
+      0% { transform: scale(.7) rotate(-8deg); }
+      55% { transform: scale(1.18) rotate(5deg); }
+      100% { transform: scale(1) rotate(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .problem.round-flash, .round-banner.show, .reward.show, .sparkles {
+        animation: none;
+      }
+    }
+
     @media (max-width: 860px) {
       .landing, .host-layout, .participant-layout {
         grid-template-columns: 1fr;
@@ -369,13 +473,13 @@
                   <button type="button" class="ghost" id="randomName">Случайное</button>
                 </div>
               </label>
-              <label class="stack">
+              <label class="stack" id="roomField">
                 <span class="tiny">Код комнаты</span>
                 <input id="roomInput" placeholder="Код появится в ссылке">
               </label>
             </div>
             <button class="primary" type="submit">Войти</button>
-            <p class="tiny">Если вы открыли ссылку от хоста, код комнаты уже подставлен.</p>
+            <p class="tiny" id="joinHint">Если вы открыли ссылку от хоста, код комнаты уже подставлен.</p>
           </form>
         </div>
       </div>
@@ -448,6 +552,7 @@
                 <span>Хост скоро начнет</span>
               </div>
             </div>
+            <div class="round-banner" id="roundBanner">Новый пример</div>
             <div class="answer-display" id="answerDisplay">0</div>
             <div class="keypad" id="keypad"></div>
             <button class="primary" id="submitAnswer" disabled>Отправить</button>
@@ -463,6 +568,13 @@
       </div>
     </section>
   </main>
+  <div class="reward" id="reward">
+    <div class="reward-card">
+      <div class="sparkles">★ ★ ★</div>
+      <strong>Верно!</strong>
+      <span>Отличный ответ</span>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 
   <script>
@@ -688,6 +800,30 @@
       </table>`;
     }
 
+    function announceRoundStart() {
+      const problem = $("participantProblem");
+      const banner = $("roundBanner");
+      problem.classList.remove("round-flash");
+      banner.classList.remove("show");
+      void problem.offsetWidth;
+      problem.classList.add("round-flash");
+      banner.classList.add("show");
+      clearTimeout(announceRoundStart.timer);
+      announceRoundStart.timer = setTimeout(() => {
+        problem.classList.remove("round-flash");
+        banner.classList.remove("show");
+      }, 1200);
+    }
+
+    function celebrateCorrectAnswer() {
+      const reward = $("reward");
+      reward.classList.remove("show");
+      void reward.offsetWidth;
+      reward.classList.add("show");
+      clearTimeout(celebrateCorrectAnswer.timer);
+      celebrateCorrectAnswer.timer = setTimeout(() => reward.classList.remove("show"), 1300);
+    }
+
     function startParticipant(room, name) {
       state.room = room;
       state.myName = name || randomName();
@@ -728,6 +864,7 @@
         state.answer = "";
         renderParticipantProblem();
         renderAnswer();
+        announceRoundStart();
         showToast("Новый раунд");
       }
       if (message.type === "round-ended") {
@@ -745,6 +882,7 @@
           problem: state.currentRound ? `${state.currentRound.left} × ${state.currentRound.right}` : "Раунд"
         });
         renderHistory();
+        if (message.isCorrect) celebrateCorrectAnswer();
         showToast(message.isCorrect ? "Верно" : `Нужно ${message.correctAnswer}`);
       }
     }
@@ -815,7 +953,7 @@
       $("participantForm").addEventListener("submit", (event) => {
         event.preventDefault();
         const room = cleanRoom($("roomInput").value);
-        if (!room) return showToast("Нужен код комнаты");
+        if (!room) return showToast("Откройте ссылку от хоста");
         const name = $("participantName").value.trim() || randomName();
         startParticipant(room, name);
       });
@@ -865,8 +1003,14 @@
     bindEvents();
     const linkedRoom = getRoomFromUrl();
     $("roomInput").value = linkedRoom;
-    $("participantName").value = randomName();
-    if (linkedRoom) setStatus(`Код ${linkedRoom} получен`, "warn");
+    $("participantName").value = "";
+    if (linkedRoom) {
+      document.body.classList.add("linked-room");
+      $("roomField").hidden = true;
+      $("joinHint").textContent = "Введите имя или нажмите «Случайное».";
+      setStatus("Ссылка готова", "warn");
+      $("participantName").focus();
+    }
   </script>
 </body>
 </html>
