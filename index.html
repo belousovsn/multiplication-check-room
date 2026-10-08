@@ -175,7 +175,7 @@
 
     .landing {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+      grid-template-columns: minmax(0, 1fr);
       gap: 28px;
       align-items: start;
       padding-top: 22px;
@@ -190,6 +190,10 @@
       display: none;
     }
 
+    body:not(.linked-room) #participantForm {
+      display: none;
+    }
+
     .intro {
       display: grid;
       gap: 18px;
@@ -200,7 +204,7 @@
 
     .mode-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
 
@@ -214,10 +218,6 @@
 
     .mode-button strong { font-size: 1.05rem; }
     .mode-button span { color: var(--muted); line-height: 1.4; }
-
-    .mode-button.teacher-mode {
-      grid-column: span 2;
-    }
 
     .panel {
       background: var(--panel);
@@ -598,15 +598,11 @@
         <div class="landing">
           <div class="intro">
             <h2>Проверка для класса или маленькой группы</h2>
-            <p>Хост создает комнату, участники заходят по временной ссылке, отвечают с цифровой клавиатуры, а результаты сразу появляются у хоста.</p>
+            <p>Создайте комнату, отправьте детям ссылку и управляйте раундами. Ученик по ссылке вводит только имя.</p>
             <div class="mode-grid">
               <button class="mode-button primary" id="hostMode">
-                <strong>Я хост</strong>
-                <span>Создать комнату и управлять раундами</span>
-              </button>
-              <button class="mode-button" id="participantMode">
-                <strong>Я участник</strong>
-                <span>Подключиться по ссылке и отвечать</span>
+                <strong>Создать комнату</strong>
+                <span>Ссылка для учеников и результаты ответов</span>
               </button>
               <button class="mode-button teacher-mode" id="teacherMode">
                 <strong>Экран учителя</strong>
@@ -616,7 +612,7 @@
           </div>
           <form class="panel stack" id="participantForm">
             <div class="stack">
-              <h2>Вход участника</h2>
+              <h2>Как тебя зовут?</h2>
               <label class="stack">
                 <span class="tiny">Имя</span>
                 <div class="row">
@@ -624,13 +620,9 @@
                   <button type="button" class="ghost" id="randomName">Случайное</button>
                 </div>
               </label>
-              <label class="stack" id="roomField">
-                <span class="tiny">Код комнаты</span>
-                <input id="roomInput" placeholder="Код появится в ссылке">
-              </label>
             </div>
             <button class="primary" type="submit">Войти</button>
-            <p class="tiny" id="joinHint">Если вы открыли ссылку от хоста, код комнаты уже подставлен.</p>
+            <p class="tiny" id="joinHint">Можно написать имя или нажать «Случайное».</p>
           </form>
         </div>
       </div>
@@ -753,6 +745,7 @@
     const state = {
       role: "landing",
       room: "",
+      linkedRoom: "",
       peer: null,
       hostConnection: null,
       connections: new Map(),
@@ -1177,15 +1170,14 @@
       $("teacherNext").addEventListener("click", randomTeacherProblem);
       $("teacherShowAnswer").addEventListener("click", () => {
         state.teacherAnswerVisible = !state.teacherAnswerVisible;
-        $("teacherShowAnswer").textContent = state.teacherAnswerVisible ? "Скрыть ответ" : "Показать ответ";
-        renderTeacherProblem();
+      $("teacherShowAnswer").textContent = state.teacherAnswerVisible ? "Скрыть ответ" : "Показать ответ";
+      renderTeacherProblem();
       });
       $("themeSelect").addEventListener("change", (event) => applyTheme(event.target.value));
-      $("participantMode").addEventListener("click", () => $("participantName").focus());
       $("randomName").addEventListener("click", () => $("participantName").value = randomName());
       $("participantForm").addEventListener("submit", (event) => {
         event.preventDefault();
-        const room = cleanRoom($("roomInput").value);
+        const room = state.linkedRoom;
         if (!room) return showToast("Откройте ссылку от хоста");
         const name = $("participantName").value.trim() || randomName();
         startParticipant(room, name);
@@ -1249,12 +1241,10 @@
     applyTheme(localStorage.getItem("multiplicationTheme") || "classic");
     renderTeacherProblem();
     const linkedRoom = getRoomFromUrl();
-    $("roomInput").value = linkedRoom;
+    state.linkedRoom = linkedRoom;
     $("participantName").value = "";
     if (linkedRoom) {
       document.body.classList.add("linked-room");
-      $("roomField").hidden = true;
-      $("joinHint").textContent = "Введите имя или нажмите «Случайное».";
       setStatus("Ссылка готова", "warn");
       $("participantName").focus();
     }
