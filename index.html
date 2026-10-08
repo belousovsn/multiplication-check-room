@@ -342,6 +342,11 @@
       line-height: .95;
       letter-spacing: 0;
       font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .teacher-problem.answer-visible strong {
+      font-size: clamp(4.4rem, 13vw, 10.5rem);
     }
 
     .teacher-actions {
@@ -756,6 +761,7 @@
       teacherProblem: { left: 5, right: 9 },
       teacherAnswerVisible: false,
       answer: "",
+      correctRoundId: "",
       myName: "",
       myHistory: []
     };
@@ -890,6 +896,7 @@
           correct: 0,
           total: 0,
           answer: null,
+          attempts: [],
           connected: true
         };
         participant.name = message.name || participant.name;
@@ -906,16 +913,24 @@
         const value = Number(message.value);
         const correctAnswer = state.currentRound.left * state.currentRound.right;
         const isCorrect = value === correctAnswer;
-        const alreadyAnswered = participant.answer && participant.answer.roundId === message.roundId;
-        participant.answer = { roundId: message.roundId, value, isCorrect, at: Date.now() };
-        if (!alreadyAnswered) {
-          participant.total += 1;
-          if (isCorrect) {
-            participant.correct += 1;
-            participant.score += 1;
-          }
+        participant.attempts = (participant.attempts || []).filter((attempt) => attempt.roundId === message.roundId);
+        const alreadyCorrect = participant.attempts.some((attempt) => attempt.isCorrect);
+        if (alreadyCorrect) {
+          send(conn, { type: "checked", roundId: message.roundId, value, isCorrect: true, correctAnswer, score: participant.score, locked: true });
+          return;
         }
-        send(conn, { type: "checked", roundId: message.roundId, value, isCorrect, correctAnswer, score: participant.score });
+        const hadAttempt = participant.attempts.length > 0;
+        const attempt = { roundId: message.roundId, value, isCorrect, at: Date.now() };
+        participant.attempts.push(attempt);
+        participant.answer = attempt;
+        if (!hadAttempt) {
+          participant.total += 1;
+        }
+        if (isCorrect) {
+          participant.correct += 1;
+          participant.score += 1;
+        }
+        send(conn, { type: "checked", roundId: message.roundId, value, isCorrect, correctAnswer, score: participant.score, attempts: participant.attempts.length });
         renderHostResults();
       }
     }
@@ -928,7 +943,10 @@
         right,
         active: true
       };
-      for (const participant of state.participants.values()) participant.answer = null;
+      for (const participant of state.participants.values()) {
+        participant.answer = null;
+        participant.attempts = [];
+      }
       broadcast({ type: "round", round: state.currentRound, roundNumber: state.roundNumber });
       renderHostProblem();
       renderHostResults();
@@ -957,13 +975,17 @@
         return;
       }
       const rows = participants.map((p) => {
+        const attempts = p.attempts || [];
         const answer = p.answer
           ? `<span class="${p.answer.isCorrect ? "answer-good" : "answer-bad"}">${p.answer.value}</span>`
           : `<span class="muted">—</span>`;
+        const attemptTrail = attempts.length > 1
+          ? `<br><span class="tiny">попытки: ${attempts.map((attempt) => `<span class="${attempt.isCorrect ? "answer-good" : "answer-bad"}">${attempt.value}</span>`).join(" → ")}</span>`
+          : "";
         const accuracy = p.total ? `${Math.round((p.correct / p.total) * 100)}%` : "—";
         return `<tr>
           <td><strong>${escapeHtml(p.name)}</strong><br><span class="tiny">${p.connected ? "в комнате" : "отключился"}</span></td>
-          <td>${answer}</td>
+          <td>${answer}${attemptTrail}</td>
           <td>${p.score}</td>
           <td class="hide-sm">${p.correct}/${p.total}</td>
           <td class="hide-sm">${accuracy}</td>
@@ -1001,8 +1023,9 @@
       if (state.teacherMode === "direct") {
         text = state.teacherAnswerVisible ? `${left} × ${right} = ${product}` : `${left} × ${right}`;
       } else {
-        text = state.teacherAnswerVisible ? `${product} : ${right} = ${left}` : `${product} : ${right}`;
+        text = state.teacherAnswerVisible ? `${product} = ${left} × ${right}` : `${product}`;
       }
+      $("teacherProblem").classList.toggle("answer-visible", state.teacherAnswerVisible);
       $("teacherProblem").innerHTML = `<strong>${text}</strong>`;
     }
 
@@ -1055,6 +1078,7 @@
         conn.on("close", () => setStatus("Хост отключился", "warn"));
       });
       $("participantTitle").textContent = state.myName;
+      state.correctRoundId = "";
       setView("participant");
       renderParticipantProblem();
       renderAnswer();
@@ -1067,6 +1091,7 @@
         state.currentRound = message.round || null;
         state.roundNumber = message.roundNumber || 0;
         state.answer = "";
+        state.correctRoundId = "";
         renderParticipantProblem();
         renderAnswer();
       }
@@ -1074,6 +1099,7 @@
         state.currentRound = message.round;
         state.roundNumber = message.roundNumber;
         state.answer = "";
+        state.correctRoundId = "";
         renderParticipantProblem();
         renderAnswer();
         announceRoundStart();
@@ -1094,23 +1120,31 @@
           problem: state.currentRound ? `${state.currentRound.left} × ${state.currentRound.right}` : "Раунд"
         });
         renderHistory();
-        if (message.isCorrect) celebrateCorrectAnswer();
-        showToast(message.isCorrect ? "Верно" : `Нужно ${message.correctAnswer}`);
+        if (message.isCorrect) {
+          state.correctRoundId = message.roundId;
+          state.answer = "";
+          celebrateCorrectAnswer();
+          renderParticipantProblem();
+          renderAnswer();
+        }
+        showToast(message.isCorrect ? "Верно! Ждем новый пример" : `Нужно ${message.correctAnswer}`);
       }
     }
 
     function renderParticipantProblem() {
       const round = state.currentRound;
+      const alreadyCorrect = round && state.correctRoundId === round.id;
       $("participantMeta").textContent = round ? `Раунд ${state.roundNumber}` : "Ожидание раунда.";
-      $("submitAnswer").disabled = !(round && round.active && state.answer);
+      $("submitAnswer").disabled = !(round && round.active && state.answer && !alreadyCorrect);
       $("participantProblem").innerHTML = round
-        ? `<div><strong>${round.left} × ${round.right}</strong><span>${round.active ? "Введите ответ" : "Раунд закончен"}</span></div>`
+        ? `<div><strong>${round.left} × ${round.right}</strong><span>${alreadyCorrect ? "Ответ принят" : (round.active ? "Введите ответ" : "Раунд закончен")}</span></div>`
         : `<div><strong>—</strong><span>Хост скоро начнет</span></div>`;
     }
 
     function renderAnswer() {
+      const alreadyCorrect = state.currentRound && state.correctRoundId === state.currentRound.id;
       $("answerDisplay").textContent = state.answer || "0";
-      $("submitAnswer").disabled = !(state.currentRound && state.currentRound.active && state.answer);
+      $("submitAnswer").disabled = !(state.currentRound && state.currentRound.active && state.answer && !alreadyCorrect);
     }
 
     function renderHistory() {
@@ -1127,7 +1161,7 @@
     }
 
     function submitAnswer() {
-      if (!state.currentRound || !state.currentRound.active || !state.answer) return;
+      if (!state.currentRound || !state.currentRound.active || !state.answer || state.correctRoundId === state.currentRound.id) return;
       send(state.hostConnection, { type: "answer", roundId: state.currentRound.id, value: Number(state.answer) });
       showToast("Ответ отправлен");
       state.answer = "";
@@ -1150,6 +1184,7 @@
       $("keypad").addEventListener("click", (event) => {
         const button = event.target.closest("button");
         if (!button) return;
+        if (state.currentRound && state.correctRoundId === state.currentRound.id) return;
         const key = button.dataset.key;
         if (key === "C") state.answer = "";
         else if (key === "⌫") state.answer = state.answer.slice(0, -1);
@@ -1204,6 +1239,7 @@
           participant.correct = 0;
           participant.total = 0;
           participant.answer = null;
+          participant.attempts = [];
         }
         renderHostResults();
       });
@@ -1223,6 +1259,7 @@
           return;
         }
         if (state.role !== "participant") return;
+        if (state.currentRound && state.correctRoundId === state.currentRound.id) return;
         if (/^\d$/.test(event.key) && state.answer.length < 3) {
           state.answer += event.key;
           renderAnswer();
