@@ -17,10 +17,50 @@
       --line: #deded8;
       --soft: #eeeeea;
       --accent: #111111;
+      --on-accent: #ffffff;
       --good: #177245;
       --bad: #a82e2e;
       --focus: #3f7cff;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body[data-theme="chalk"] {
+      --bg: #173629;
+      --panel: #214a38;
+      --ink: #f8f4e8;
+      --muted: #c7d4ca;
+      --line: rgba(248, 244, 232, .24);
+      --soft: rgba(248, 244, 232, .1);
+      --accent: #f8f4e8;
+      --on-accent: #173629;
+      --good: #8fe0a4;
+      --bad: #ff9a9a;
+    }
+
+    body[data-theme="sunny"] {
+      --bg: #fff7d8;
+      --panel: #ffffff;
+      --ink: #211c12;
+      --muted: #766d51;
+      --line: #eadb9a;
+      --soft: #fff0ad;
+      --accent: #2e64d1;
+      --on-accent: #ffffff;
+      --good: #2f9f4a;
+      --bad: #ba3b36;
+    }
+
+    body[data-theme="night"] {
+      --bg: #111318;
+      --panel: #1c2029;
+      --ink: #f1f3f7;
+      --muted: #a9afbd;
+      --line: #343a46;
+      --soft: #242936;
+      --accent: #f1f3f7;
+      --on-accent: #111318;
+      --good: #6eda92;
+      --bad: #ff8181;
     }
 
     * { box-sizing: border-box; }
@@ -56,7 +96,7 @@
     button.primary {
       background: var(--accent);
       border-color: var(--accent);
-      color: #fff;
+      color: var(--on-accent);
     }
     button.ghost { background: transparent; }
     button.danger { color: var(--bad); }
@@ -85,6 +125,20 @@
       gap: 16px;
       padding: 8px 0 18px;
       border-bottom: 1px solid var(--line);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .theme-select {
+      width: auto;
+      min-width: 150px;
+      background: var(--panel);
     }
 
     h1, h2, h3, p { margin: 0; }
@@ -146,7 +200,7 @@
 
     .mode-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
     }
 
@@ -160,6 +214,10 @@
 
     .mode-button strong { font-size: 1.05rem; }
     .mode-button span { color: var(--muted); line-height: 1.4; }
+
+    .mode-button.teacher-mode {
+      grid-column: span 2;
+    }
 
     .panel {
       background: var(--panel);
@@ -222,6 +280,81 @@
     }
 
     .problem span { color: var(--muted); }
+
+    .teacher-screen {
+      min-height: calc(100vh - 118px);
+      display: grid;
+      align-content: start;
+      gap: 28px;
+      padding: 24px 0;
+    }
+
+    .teacher-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .teacher-title {
+      font-size: clamp(2rem, 5.4vw, 4.6rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+      color: var(--ink);
+    }
+
+    .teacher-controls {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .teacher-tab {
+      min-width: min(260px, 100%);
+      min-height: 64px;
+      border: 0;
+      color: #fff;
+      font-size: clamp(1.1rem, 2.6vw, 1.55rem);
+      font-weight: 700;
+      padding: 0 28px;
+    }
+
+    .teacher-tab.direct { background: #48b24f; }
+    .teacher-tab.reverse { background: #2994e8; }
+    .teacher-tab[aria-pressed="false"] {
+      opacity: .58;
+      filter: saturate(.8);
+    }
+
+    .teacher-problem {
+      display: grid;
+      place-items: center;
+      min-height: 340px;
+      padding: 24px;
+      color: var(--ink);
+      text-align: center;
+    }
+
+    .teacher-problem strong {
+      font-size: clamp(6.5rem, 21vw, 15rem);
+      line-height: .95;
+      letter-spacing: 0;
+      font-weight: 800;
+    }
+
+    .teacher-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    body[data-theme="chalk"] .teacher-problem,
+    body[data-theme="chalk"] .teacher-title {
+      text-shadow: 0 2px 0 rgba(0, 0, 0, .22);
+    }
 
     .round-banner {
       display: none;
@@ -422,8 +555,12 @@
         grid-template-columns: 1fr;
       }
       header { align-items: flex-start; flex-direction: column; }
+      .top-actions { justify-content: flex-start; }
       .mode-grid { grid-template-columns: 1fr; }
+      .mode-button.teacher-mode { grid-column: auto; }
       .participant-layout .panel:first-child { order: 1; }
+      .teacher-controls { gap: 10px; }
+      .teacher-tab { flex: 1 1 220px; }
     }
 
     @media (max-width: 560px) {
@@ -433,6 +570,8 @@
       .selector { grid-template-columns: 1fr; }
       th, td { padding: 9px 6px; }
       .hide-sm { display: none; }
+      .teacher-screen { min-height: auto; gap: 18px; }
+      .teacher-problem { min-height: 250px; padding: 12px; }
     }
   </style>
 </head>
@@ -443,7 +582,15 @@
         <h1>Таблица умножения</h1>
         <p class="muted">Раунды до 10, общий счет и быстрый вход по ссылке.</p>
       </div>
-      <div class="status" id="connectionStatus"><span class="dot"></span><span>Не подключено</span></div>
+      <div class="top-actions">
+        <select class="theme-select" id="themeSelect" aria-label="Тема">
+          <option value="classic">Классика</option>
+          <option value="chalk">Доска</option>
+          <option value="sunny">Солнечная</option>
+          <option value="night">Ночная</option>
+        </select>
+        <div class="status" id="connectionStatus"><span class="dot"></span><span>Не подключено</span></div>
+      </div>
     </header>
 
     <section class="views">
@@ -460,6 +607,10 @@
               <button class="mode-button" id="participantMode">
                 <strong>Я участник</strong>
                 <span>Подключиться по ссылке и отвечать</span>
+              </button>
+              <button class="mode-button teacher-mode" id="teacherMode">
+                <strong>Экран учителя</strong>
+                <span>Крупный пример на весь экран</span>
               </button>
             </div>
           </div>
@@ -482,6 +633,26 @@
             <p class="tiny" id="joinHint">Если вы открыли ссылку от хоста, код комнаты уже подставлен.</p>
           </form>
         </div>
+      </div>
+
+      <div class="view" id="teacherView">
+        <section class="teacher-screen">
+          <div class="teacher-head">
+            <h2 class="teacher-title">Проверка таблицы умножения</h2>
+            <button class="ghost" id="backFromTeacher">Назад</button>
+          </div>
+          <div class="teacher-controls" role="group" aria-label="Режим проверки">
+            <button class="teacher-tab direct" id="teacherDirect" aria-pressed="true">Прямая проверка</button>
+            <button class="teacher-tab reverse" id="teacherReverse" aria-pressed="false">Обратная проверка</button>
+          </div>
+          <div class="teacher-problem" id="teacherProblem">
+            <strong>5 × 9</strong>
+          </div>
+          <div class="teacher-actions">
+            <button class="primary" id="teacherNext">Следующий пример</button>
+            <button id="teacherShowAnswer">Показать ответ</button>
+          </div>
+        </section>
       </div>
 
       <div class="view" id="hostView">
@@ -588,6 +759,9 @@
       participants: new Map(),
       currentRound: null,
       roundNumber: 0,
+      teacherMode: "direct",
+      teacherProblem: { left: 5, right: 9 },
+      teacherAnswerVisible: false,
       answer: "",
       myName: "",
       myHistory: []
@@ -652,6 +826,14 @@
           select.appendChild(option);
         }
       }
+    }
+
+    function applyTheme(theme) {
+      const allowed = ["classic", "chalk", "sunny", "night"];
+      const nextTheme = allowed.includes(theme) ? theme : "classic";
+      document.body.dataset.theme = nextTheme;
+      $("themeSelect").value = nextTheme;
+      localStorage.setItem("multiplicationTheme", nextTheme);
     }
 
     function peerConfig(id) {
@@ -798,6 +980,43 @@
         <thead><tr><th>Участник</th><th>Ответ</th><th>Счет</th><th class="hide-sm">Верно</th><th class="hide-sm">Точность</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
+    }
+
+    function randomTeacherProblem() {
+      state.teacherProblem = {
+        left: Math.floor(Math.random() * 10) + 1,
+        right: Math.floor(Math.random() * 10) + 1
+      };
+      state.teacherAnswerVisible = false;
+      $("teacherShowAnswer").textContent = "Показать ответ";
+      renderTeacherProblem();
+    }
+
+    function setTeacherMode(mode) {
+      state.teacherMode = mode;
+      state.teacherAnswerVisible = false;
+      $("teacherShowAnswer").textContent = "Показать ответ";
+      $("teacherDirect").setAttribute("aria-pressed", String(mode === "direct"));
+      $("teacherReverse").setAttribute("aria-pressed", String(mode === "reverse"));
+      renderTeacherProblem();
+    }
+
+    function renderTeacherProblem() {
+      const { left, right } = state.teacherProblem;
+      const product = left * right;
+      let text;
+      if (state.teacherMode === "direct") {
+        text = state.teacherAnswerVisible ? `${left} × ${right} = ${product}` : `${left} × ${right}`;
+      } else {
+        text = state.teacherAnswerVisible ? `${product} : ${right} = ${left}` : `${product} : ${right}`;
+      }
+      $("teacherProblem").innerHTML = `<strong>${text}</strong>`;
+    }
+
+    function openTeacherScreen() {
+      setView("teacher");
+      setStatus("Экран учителя", "warn");
+      randomTeacherProblem();
     }
 
     function announceRoundStart() {
@@ -948,6 +1167,20 @@
 
     function bindEvents() {
       $("hostMode").addEventListener("click", () => startHost());
+      $("teacherMode").addEventListener("click", openTeacherScreen);
+      $("backFromTeacher").addEventListener("click", () => {
+        setView("landing");
+        setStatus("Не подключено");
+      });
+      $("teacherDirect").addEventListener("click", () => setTeacherMode("direct"));
+      $("teacherReverse").addEventListener("click", () => setTeacherMode("reverse"));
+      $("teacherNext").addEventListener("click", randomTeacherProblem);
+      $("teacherShowAnswer").addEventListener("click", () => {
+        state.teacherAnswerVisible = !state.teacherAnswerVisible;
+        $("teacherShowAnswer").textContent = state.teacherAnswerVisible ? "Скрыть ответ" : "Показать ответ";
+        renderTeacherProblem();
+      });
+      $("themeSelect").addEventListener("change", (event) => applyTheme(event.target.value));
       $("participantMode").addEventListener("click", () => $("participantName").focus());
       $("randomName").addEventListener("click", () => $("participantName").value = randomName());
       $("participantForm").addEventListener("submit", (event) => {
@@ -985,6 +1218,18 @@
       $("submitAnswer").addEventListener("click", submitAnswer);
       $("leaveRoom").addEventListener("click", () => location.href = location.pathname);
       window.addEventListener("keydown", (event) => {
+        if (state.role === "teacher") {
+          if (event.key === " " || event.key === "Enter") {
+            event.preventDefault();
+            randomTeacherProblem();
+          }
+          if (event.key.toLowerCase() === "a" || event.key.toLowerCase() === "ф") {
+            state.teacherAnswerVisible = !state.teacherAnswerVisible;
+            $("teacherShowAnswer").textContent = state.teacherAnswerVisible ? "Скрыть ответ" : "Показать ответ";
+            renderTeacherProblem();
+          }
+          return;
+        }
         if (state.role !== "participant") return;
         if (/^\d$/.test(event.key) && state.answer.length < 3) {
           state.answer += event.key;
@@ -1001,6 +1246,8 @@
     fillFactors();
     setupKeypad();
     bindEvents();
+    applyTheme(localStorage.getItem("multiplicationTheme") || "classic");
+    renderTeacherProblem();
     const linkedRoom = getRoomFromUrl();
     $("roomInput").value = linkedRoom;
     $("participantName").value = "";
